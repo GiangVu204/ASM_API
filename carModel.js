@@ -14,6 +14,9 @@ const CarSchema = new mongoose.Schema({
     },
     gia: {
         type: Number
+    }, 
+    anh: {
+        type: String
     }
 });
 
