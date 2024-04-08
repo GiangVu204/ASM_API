@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 
 const carModel = require('./carModel');
 const COMMON = require('./COMMON');
+const upload = require("./upload");
 
 // Middleware để đọc dữ liệu từ body của yêu cầu POST
 router.use(express.json());
@@ -34,25 +35,45 @@ router.post('/addCar', async (req, res) => {
         await mongoose.connect(COMMON.uri);
 
         // Lấy thông tin sản phẩm từ body của yêu cầu
-        const { ten, namSX, hang, gia, anh } = req.body;
+        // const { ten, namSX, hang, gia, anh } = req.body;
+        const data = req.body;
 
         // Tạo đối tượng CarModel mới
         const newCar = new carModel({
-            ten,
-            namSX,
-            hang,
-            gia,
-            anh
+            ten: data.ten,
+            namSX: data.namSX,
+            hang: data.hang,
+            gia: data.gia,
+            anh: data.anh,
         });
 
-        // Lưu đối tượng CarModel vào cơ sở dữ liệu
-        const savedCar = await newCar.save();
+        const result = await newCar.save();
+        if (result) {
+            res.json({
+                "status": 200,
+                "messenger": "Thêm thành công",
+                "data": result
+            })
+        } else {
+            res.json({
+                "status": 400,
+                "messenger": "Thêm không thành công",
+                "data": []
+            })
 
-        res.status(200).json(savedCar);
+        }
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Lỗi khi thêm sản phẩm' });
+        console.log(error);
     }
+
+    // Lưu đối tượng CarModel vào cơ sở dữ liệu
+    // const savedCar = await newCar.save();
+
+    //     res.status(200).json(savedCar);
+    // } catch (error) {
+    //     console.error(error);
+    //     res.status(500).json({ error: 'Lỗi khi thêm sản phẩm' });
+    // }
 });
 
 // Route PUT "/api/updateCar/:id" để cập nhật thông tin của một xe
@@ -88,19 +109,42 @@ router.delete('/deleteCar/:id', async (req, res) => {
     }
 });
 
+//get fruit have name a or x
+router.get('/get-list-carModel-have-name-a-or-x', async (req, res) => {
+    try {
+        await mongoose.connect(COMMON.uri);
+
+        const cars = await carModel.find({
+            $or: [
+                { ten: { $regex: 'A' } },
+                { ten: { $regex: 'X' } },
+            ]
+        });
+
+        res.json({
+            status: 200,
+            messenger: 'Danh sách xe',
+            data: cars
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách xe' });
+    }
+});
+
+// Route GET "/api/cars" để tìm kiếm xe theo tên
 router.get('/search', async (req, res) => {
     try {
         await mongoose.connect(COMMON.uri);
 
-        const { query } = req.query; // Lấy giá trị của tham số truy vấn 'query' từ URL
+        const { name } = req.query; // Lấy giá trị của tham số truy vấn 'name' từ URL
 
-        // Tìm kiếm các xe có tên chứa từ khóa 'query'
-        const cars = await carModel.find({ ten: { $regex: query, $options: 'i' } });
+        const cars = await carModel.find({ ten: { "$regex": name, "$options": 'i' } }); // Tìm kiếm xe theo tên (tên chứa từ khóa, không phân biệt hoa thường)
 
         res.status(200).json(cars);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Lỗi khi tìm kiếm sản phẩm' });
+        res.status(500).json({ error: 'Lỗi khi tìm kiếm xe' });
     }
 });
 
@@ -127,5 +171,36 @@ router.get('/sort', async (req, res) => {
         res.status(500).json({ error: 'Lỗi khi sắp xếp sản phẩm' });
     }
 });
+
+router.post('/add-car-with-images', upload.single('anh'), async (req, res) => {
+    try {
+        await mongoose.connect(COMMON.uri);
+
+        const data = req.body;
+
+        // Vì chỉ có một ảnh, req.file chứa tệp được tải lên
+        const imageUrl = req.file ? `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}` : "";
+
+        const newCar = new carModel({
+            ten: data.ten,
+            namSX: data.namSX,
+            hang: data.hang,
+            gia: data.gia,
+            anh: imageUrl // Lưu URL của hình ảnh
+        });
+
+        const result = await newCar.save();
+        res.json({
+            "status": 200,
+            "messenger": "Thêm thành công",
+            "data": result
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ "status": 500, "messenger": "Lỗi khi thêm sản phẩm", "data": [] });
+    }
+});
+
 
 module.exports = router;
